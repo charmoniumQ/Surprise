@@ -12,6 +12,7 @@ from surprise import NormalPredictor
 from surprise import Dataset
 from surprise import Reader
 from surprise import evaluate
+from surprise import accuracy
 
 
 def test_performances():
@@ -27,9 +28,12 @@ def test_performances():
 
     algo = NormalPredictor()
     tmp_dir = tempfile.mkdtemp()  # create tmp dir
-    performances = evaluate(algo, data, measures=['RmSe', 'Mae'],
+    measures = ['RmSe', 'Mae', ('onE', lambda *args, **kwargs: 1)]
+    performances = evaluate(algo, data, measures=['RmSe', 'Mae', ('rmse')],
                             with_dump=True, dump_dir=tmp_dir, verbose=2)
     shutil.rmtree(tmp_dir)  # remove tmp dir
 
     assert performances['RMSE'] is performances['rmse']
     assert performances['MaE'] is performances['mae']
+    assert performances['ONe'] is performances['one']
+    assert performances['one'] == 1
