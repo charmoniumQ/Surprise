@@ -6,6 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 from collections import defaultdict
 import time
 import os
+import multiprocessing
 
 import numpy as np
 from six import iteritems
@@ -168,46 +169,18 @@ class GridSearch:
                 which to evaluate the algorithm.
         """
 
-        num_of_combinations = len(self.param_combinations)
-        params = []
-        scores = []
-
         # evaluate each combination of parameters using the evaluate method
-        for combination_index, combination in enumerate(tqdm.tqdm(
-                self.param_combinations)):
-            params.append(combination)
-
-            if self.verbose >= 1:
-                print('-' * 12)
-                print('Parameters combination {} of {}'.
-                      format(combination_index + 1, num_of_combinations))
-                print('params: ', combination)
-
-            # the algorithm to use along with the combination parameters
-            algo_instance = self.algo_class(**combination)
-            evaluate_results = evaluate(algo_instance, data,
-                                        measures=self.measures,
-                                        verbose=(self.verbose == 2))
-
-            # measures as keys and folds average as values
-            mean_score = {}
-            for measure in self.measures:
-                mean_score[measure] = np.mean(evaluate_results[measure])
-            scores.append(mean_score)
-
-            if self.verbose == 1:
-                print('-' * 12)
-                for measure in self.measures:
-                    print('Mean {0:4s}: {1:1.4f}'.format(
-                        measure, mean_score[measure]))
-                print('-' * 12)
+        pool = multiprocessing.Pool()
+        self.data = data
+        param_scores = list(tqdm.tqdm(pool.imap_unordered(
+            evaluate_one, product([self], self.param_combinations))))
 
         # Add all scores and parameters lists to dict
-        self.cv_results['params'] = params
-        self.cv_results['scores'] = scores
+        self.cv_results['params'], self.cv_results['scores'] = \
+            zip(*param_scores)
 
         # Add accuracy measures and algorithm parameters as keys to dict
-        for param, score in zip(params, scores):
+        for param, score in param_scores:
             for param_key, score_key in zip(param.keys(), score.keys()):
                 self.cv_results[param_key].append(param[param_key])
                 self.cv_results[score_key].append(score[score_key])
@@ -227,6 +200,32 @@ class GridSearch:
                 self.best_index[measure]]
             self.best_estimator[measure] = self.algo_class(
                 **self.best_params[measure])
+
+
+def evaluate_one(c):
+    self, combination = c
+    if self.verbose >= 1:
+        print('-' * 12)
+        print('params: ', combination)
+
+    # the algorithm to use along with the combination parameters
+    algo_instance = self.algo_class(**combination)
+    evaluate_results = evaluate(algo_instance, self.data,
+                                measures=self.measures,
+                                verbose=(self.verbose == 2))
+
+    # measures as keys and folds average as values
+    mean_score = {}
+    for measure in self.measures:
+        mean_score[measure] = np.mean(evaluate_results[measure])
+
+    if self.verbose == 1:
+        print('-' * 12)
+        for measure in self.measures:
+            print('Mean {0:4s}: {1:1.4f}'.format(
+                measure, mean_score[measure]))
+        print('-' * 12)
+    return combination, mean_score
 
 
 class CaseInsensitiveDefaultDict(defaultdict):
