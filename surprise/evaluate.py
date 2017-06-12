@@ -11,6 +11,7 @@ import numpy as np
 from six import iteritems
 from six import itervalues
 from itertools import product
+import tqdm
 
 from . import accuracy
 from .dump import dump
@@ -172,8 +173,8 @@ class GridSearch:
         scores = []
 
         # evaluate each combination of parameters using the evaluate method
-        for combination_index, combination in enumerate(
-                self.param_combinations):
+        for combination_index, combination in enumerate(tqdm.tqdm(
+                self.param_combinations)):
             params.append(combination)
 
             if self.verbose >= 1:
