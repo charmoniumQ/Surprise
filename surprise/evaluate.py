@@ -170,10 +170,12 @@ class GridSearch:
         """
 
         # evaluate each combination of parameters using the evaluate method
-        pool = multiprocessing.Pool()
+        pool = multiprocessing.Pool(4)
         self.data = data
         param_scores = list(tqdm.tqdm(pool.imap_unordered(
-            evaluate_one, product([self], self.param_combinations))))
+            evaluate_one, product([self], self.param_combinations)),
+                                      total=len(self.param_combinations)
+        ))
 
         # Add all scores and parameters lists to dict
         self.cv_results['params'], self.cv_results['scores'] = \
